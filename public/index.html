@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crypto Crash Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #121212;
+            color: #fff;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #00ffcc;
+        }
+        
+        #multiplier {
+            font-size: 3rem;
+            margin: 20px 0;
+        }
+        
+        input,
+        select,
+        button {
+            margin: 10px;
+            padding: 10px;
+            font-size: 1rem;
+        }
+        
+        .log {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #222;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 8px;
+        }
+        
+        .log p {
+            margin: 0;
+            padding: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔥 Crypto Crash Game 🔥</h1>
+    <div>
+        <input type="text" id="username" placeholder="Username" />
+        <input type="number" id="usdAmount" placeholder="USD Bet Amount" />
+        <select id="currency">
+      <option value="BTC">BTC</option>
+      <option value="ETH">ETH</option>
+    </select>
+        <button onclick="placeBet()">Place Bet</button>
+        <button onclick="cashOut()">Cash Out</button>
+    </div>
+
+    <div id="multiplier">Multiplier: 1.00x</div>
+
+    <div class="log" id="eventLog"></div>
+
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+    <script>
+        const socket = io('https://crypto-crash-backend-low8.onrender.com');
+        let currentRoundId = null;
+        let isRunning = false;
+
+        socket.on('connect', () => logEvent('✅ Connected to server'));
+        socket.on('roundStart', (data) => {
+            currentRoundId = data.roundId;
+            isRunning = true;
+            logEvent(`🟢 New round started (ID: ${data.roundId})`);
+        });
+        socket.on('multiplierUpdate', (data) => {
+            document.getElementById('multiplier').innerText = `Multiplier: ${data.multiplier.toFixed(2)}x`;
+        });
+        socket.on('playerCashout', (data) => {
+            logEvent(`💸 ${data.username} cashed out at ${data.multiplier}x => $${data.usd.toFixed(2)}`);
+        });
+        socket.on('roundCrash', (data) => {
+            logEvent(`💥 Round crashed at ${data.crashPoint}x`);
+            isRunning = false;
+        });
+
+        function placeBet() {
+            const usdAmount = document.getElementById('usdAmount').value;
+            const currency = document.getElementById('currency').value;
+            const username = document.getElementById('username').value.trim();
+            if (!usdAmount || !username) return alert('Please enter both username and bet amount');
+            socket.emit('placeBet', {
+                username,
+                usdAmount: parseFloat(usdAmount),
+                currency
+            });
+            logEvent(`🎯 ${username} placed $${usdAmount} in ${currency}`);
+        }
+
+        function cashOut() {
+            if (!isRunning || !currentRoundId) return alert('No active round!');
+            const username = document.getElementById('username').value.trim();
+            if (!username) return alert('Enter your username');
+            socket.emit('cashOut', {
+                username,
+                roundId: currentRoundId
+            });
+            logEvent('💼 Cashout requested');
+        }
+
+        function logEvent(message) {
+            const log = document.getElementById('eventLog');
+            const p = document.createElement('p');
+            p.innerText = message;
+            log.prepend(p);
+        }
+    </script>
+</body>
+
+</html>
