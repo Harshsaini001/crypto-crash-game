@@ -17,7 +17,9 @@ app.use(express.static('public'));
 app.use('/api/game', gameRoutes);
 app.use('/api/wallet', walletRoutes);
 
-mongoose.connect(process.env.MONGO_URI, () => console.log('MongoDB connected'));
-setupSocket(io);
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log('MongoDB connected'))
+    .catch(err => console.error('MongoDB Error:', err));
+
 
 server.listen(3000, () => console.log('Server running on http://localhost:3000'));
