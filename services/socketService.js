@@ -38,33 +38,44 @@ function setupSocket(io) {
             await currentRound.save();
         });
 
-        socket.on('cashOut', async({ username, roundId }) => {
-            const player = await Player.findOne({ username });
-            if (!player || !currentRound || currentRound._id.toString() !== roundId) return;
+       socket.on('cashOut', async({ username, roundId }) => {
+    console.log("⚡️ CashOut request received from:", username, roundId);
 
-            const bet = currentRound.players.find(
-                (b) => b.playerId.toString() === player._id.toString() && !b.hasCashedOut
-            );
+    const player = await Player.findOne({ username });
+    if (!player) return console.log("⛔ Player not found");
 
-            if (!bet || multiplier >= currentRound.crashPoint) return;
+    if (!currentRound || currentRound._id.toString() !== roundId) {
+        return console.log("⛔ Invalid round");
+    }
 
-            const cashCrypto = bet.cryptoAmount * multiplier;
-            player.wallet[bet.currency] += cashCrypto;
-            await player.save();
+    const bet = currentRound.players.find(
+        (b) => b.playerId.toString() === player._id.toString() && !b.hasCashedOut
+    );
+    if (!bet) return console.log("⛔ No valid bet to cash out");
 
-            bet.hasCashedOut = true;
-            bet.multiplierAtCashout = multiplier;
-            await currentRound.save();
+    if (multiplier >= currentRound.crashPoint) {
+        return console.log("💥 Already crashed! Multiplier =", multiplier.toFixed(2));
+    }
 
-            const usdPayout = cashCrypto * (await getCryptoPrice(bet.currency));
+    const cashCrypto = bet.cryptoAmount * multiplier;
+    player.wallet[bet.currency] += cashCrypto;
+    await player.save();
 
-            io.emit('playerCashout', {
-                username,
-                multiplier: multiplier.toFixed(2),
-                usd: usdPayout
-            });
-        });
+    bet.hasCashedOut = true;
+    bet.multiplierAtCashout = multiplier;
+    await currentRound.save();
+
+    const usdPayout = cashCrypto * (await getCryptoPrice(bet.currency));
+
+    io.emit('playerCashout', {
+        username,
+        multiplier: multiplier.toFixed(2),
+        usd: usdPayout
     });
+
+    console.log(`✅ ${username} cashed out at x${multiplier.toFixed(2)} for $${usdPayout.toFixed(2)}`);
+   });
+ });
 }
 
 async function startNewRound() {
